@@ -49,7 +49,7 @@ export const getCreatorCourses = async (req, res) => {
   }
 };
 
-const editCourse = async (req, res) => {
+export const editCourse = async (req, res) => {
   try {
     const courseId = req.params.courseId;
     const {
@@ -62,7 +62,7 @@ const editCourse = async (req, res) => {
     } = req.body;
     const thumbnail = req.file;
 
-    const course = await Course.findById(courseId);
+    let course = await Course.findById(courseId);
     if (!course) {
       res.status(404).json({
         message: "Course not found!",
@@ -74,12 +74,53 @@ const editCourse = async (req, res) => {
         const publicId = course.courseThumbnail.split("/").pop().split(".")[0];
         await deleteMediaFromCloudinary(publicId); // delete previous upload
       }
+      // upload thumbnail
       courseThumbnail = await uploadMedia(thumbnail.path);
     }
+
+    const updateData = {
+      courseTitle,
+      subTitle,
+      description,
+      category,
+      courseLevel,
+      coursePrice,
+      courseThumbnail: courseThumbnail?.secure_url,
+    };
+
+    course = await Course.findByIdAndUpdate(courseId, updateData, {
+      new: true,
+    });
+    res.status(200).json({
+      course,
+      message: "Course updated successfully",
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
       message: "Failed to create course",
+    });
+  }
+};
+
+export const getCourseById = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const course = await Course.findById(courseId);
+
+    if (!course) {
+      return res.status(404).json({
+        message: "Course not found!",
+      });
+    }
+    return res.status(200).json({
+      course,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Failed to get course",
     });
   }
 };
