@@ -25,7 +25,6 @@ const courseSchema = new mongoose.Schema(
     },
     coursePrice: {
       type: Number,
-      required: true,
     },
     enrolledStudents: [
       {
@@ -33,10 +32,12 @@ const courseSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
-    lectures: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Lectures",
-    },
+    lectures: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Lectures",
+      },
+    ],
     creator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
