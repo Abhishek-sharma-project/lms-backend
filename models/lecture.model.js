@@ -18,4 +18,4 @@ const lectureSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-export const Lecture = mongoose.model("lecture", lectureSchema);
+export const Lecture = mongoose.model("Lecture", lectureSchema);
