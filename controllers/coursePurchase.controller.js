@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import { Course } from "../models/course.model.js";
 import { CoursePurchase } from "../models/coursePurchase.model.js";
+import { Lecture } from "../models/lecture.model.js";
+import { User } from "../models/user.model.js";
 
 export const createCheckoutSession = async (req, res) => {
   try {
@@ -29,11 +31,9 @@ export const createCheckoutSession = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Checkout session created",
-      order: {
+      data: {
         transactionId,
-        amount: course.coursePrice,
-        courseTitle: course.courseTitle,
-        currency: "INR",
+        course,
       },
     });
   } catch (error) {
@@ -51,12 +51,12 @@ export const webhook = async (req, res) => {
     const { transactionId } = req.body;
     setTimeout(async () => {
       try {
-        const payment = await CoursePurchase.findOne({
+        const purchase = await CoursePurchase.findOne({
           paymentId: transactionId,
           status: "pending",
-        });
+        }).populate({ path: "courseId" });
 
-        if (!payment) {
+        if (!purchase) {
           return res.status(404).json({
             success: false,
             message: "Payment already processed",
@@ -65,14 +65,37 @@ export const webhook = async (req, res) => {
 
         const status = Math.random() > 0.1 ? "completed" : "failed";
 
-        // update payment status
-        payment.status = status;
-        await payment.save();
+        // update purchase status
+        purchase.status = status;
+        await purchase.save();
 
-        res.status(200).json({
+        // Make all lecture visible by setting isPreviewFree to true
+        if (purchase.courseId && purchase.courseId.lectures.length > 0) {
+          await Lecture.updateMany(
+            { _id: { $in: purchase.courseId.lectures } },
+            { $set: { isPreviewFree: true } }
+          );
+        }
+
+        // Update user's enrolled courses
+        await User.findByIdAndUpdate(
+          purchase.userId,
+          { $addToSet: { enrolledCourse: purchase.courseId._id } },
+          { new: true }
+        );
+
+        //Update course to add user id to enrolledStudents
+
+        await Course.findByIdAndUpdate(
+          purchase.courseId._id,
+          { $addToSet: { enrolledStudents: purchase.userId } },
+          { new: true }
+        );
+
+        await res.status(200).json({
           success: true,
           message: "Payment verified",
-          status: payment.status,
+          purchase,
         });
       } catch (error) {
         console.log(error);
@@ -80,7 +103,7 @@ export const webhook = async (req, res) => {
           message: "Failed to complete payment",
         });
       }
-    }, 3000);
+    }, 8000);
   } catch (error) {
     console.log(error);
     return res.status(500).json({
@@ -89,9 +112,9 @@ export const webhook = async (req, res) => {
   }
 };
 
-// Check payment status
+// Check purchase status
 
-export const getPaymentStatus = async (req, res) => {
+export const getPurchaseDetails = async (req, res) => {
   try {
     const { transactionId } = req.params;
 
@@ -113,6 +136,59 @@ export const getPaymentStatus = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       message: "Failed to get payment",
+    });
+  }
+};
+
+export const getCourseDetailsWithPurchaseStatus = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.id;
+
+    const course = await Course.findById(courseId)
+      .populate({ path: "creator" })
+      .populate({ path: "lectures" });
+
+    const purchased = await CoursePurchase.findOne({ userId, courseId });
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    return res.status(200).json({
+      course,
+      purchased: !!purchased, // true if purchased, false otherwise
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Failed to get purchase course details",
+    });
+  }
+};
+
+export const getAllPurchasedCourse = async (_, res) => {
+  try {
+    const purchasedCourse = await CoursePurchase.find({
+      status: "completed",
+    }).populate("userId");
+
+    if (!purchasedCourse) {
+      return res.status(404).json({
+        success: false,
+        purchasedCourse: [],
+      });
+    }
+    return res.status(200).json({
+      purchasedCourse,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Failed to get purchase course",
     });
   }
 };
