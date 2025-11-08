@@ -51,6 +51,19 @@ export const webhook = async (req, res) => {
     const { transactionId } = req.body;
     setTimeout(async () => {
       try {
+        // already purchased
+        const alreadyPurchased = await CoursePurchase.findOne({
+          paymentId: transactionId,
+          status: "completed",
+        });
+
+        if (alreadyPurchased) {
+          return res.status(200).json({
+            success: true,
+            message: "Payment already processed",
+          });
+        }
+
         const purchase = await CoursePurchase.findOne({
           paymentId: transactionId,
           status: "pending",
@@ -63,7 +76,7 @@ export const webhook = async (req, res) => {
           });
         }
 
-        const status = Math.random() > 0.1 ? "completed" : "failed";
+        const status = "completed";
 
         // update purchase status
         purchase.status = status;

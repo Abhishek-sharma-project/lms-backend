@@ -35,10 +35,12 @@ export const createCourse = async (req, res) => {
 
 export const getPublishedCourse = async (_, res) => {
   try {
-    const courses = await Course.find({ isPublished: true }).populate({
-      path: "creator",
-      select: "name photoUrl",
-    });
+    const courses = await Course.find({ isPublished: true })
+      .populate({
+        path: "creator",
+        select: "name photoUrl",
+      })
+      .sort({ createdAt: -1 });
     if (!courses) {
       return res.status(404).json({
         message: "Course not found",
@@ -58,7 +60,9 @@ export const getPublishedCourse = async (_, res) => {
 export const getCreatorCourses = async (req, res) => {
   try {
     const userId = req.id;
-    const courses = await Course.find({ creator: userId });
+    const courses = await Course.find({ creator: userId }).sort({
+      createdAt: -1,
+    });
     if (!courses) {
       return res.status(404).json({
         courses: [],
@@ -95,6 +99,13 @@ export const editCourse = async (req, res) => {
         message: "Course not found!",
       });
     }
+
+    if (!courseLevel || !coursePrice) {
+      return res.status(400).json({
+        message: "Add course level and price first!",
+      });
+    }
+
     let courseThumbnail;
     if (thumbnail) {
       if (course.courseThumbnail) {
@@ -312,6 +323,12 @@ export const togglePublishCourse = async (req, res) => {
     if (!course) {
       return res.status(404).json({
         messgae: "Course not found",
+      });
+    }
+
+    if (!course.courseLevel || !course.coursePrice) {
+      return res.status(400).json({
+        message: "Add course level and price first!",
       });
     }
 
