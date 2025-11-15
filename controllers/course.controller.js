@@ -319,16 +319,39 @@ export const togglePublishCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
     const { publish } = req.query; // true, false
-    const course = await Course.findById(courseId);
+    const course = await Course.findById(courseId).populate("lectures");
     if (!course) {
       return res.status(404).json({
         messgae: "Course not found",
       });
     }
 
+    // Unpublish course always allowed
+    if (publish === "false") {
+      course.isPublished = false;
+      await course.save();
+      return res.status(200).json({
+        message: "Course Unpublished",
+      });
+    }
+
+    // Publish validation
+    if (course.lectures.length === 0) {
+      return res.status(400).json({
+        message: "Add at least one lecture!",
+      });
+    }
+
     if (!course.courseLevel || !course.coursePrice) {
       return res.status(400).json({
         message: "Add course level and price first!",
+      });
+    }
+
+    const video = course.lectures.some((lecture) => !lecture.videoUrl);
+    if (video) {
+      return res.status(400).json({
+        message: "All lectures must have a video!",
       });
     }
 

@@ -19,7 +19,7 @@ const courseProgressSchema = new mongoose.Schema({
   completed: {
     type: Boolean,
   },
-  lectureProgressSchema: [lectureProgressSchema],
+  lectureProgress: [lectureProgressSchema],
 });
 
 export const CourseProgress = mongoose.model(

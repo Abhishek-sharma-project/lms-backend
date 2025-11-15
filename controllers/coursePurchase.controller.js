@@ -19,6 +19,9 @@ export const createCheckoutSession = async (req, res) => {
     // Payment Id
     const transactionId = "TXN_" + new mongoose.Types.ObjectId().toString();
 
+    // Delete pending status course
+    await CoursePurchase.deleteMany({ userId, courseId, status: "pending" });
+
     // create course order
     await CoursePurchase.create({
       courseId,
@@ -162,7 +165,11 @@ export const getCourseDetailsWithPurchaseStatus = async (req, res) => {
       .populate({ path: "creator" })
       .populate({ path: "lectures" });
 
-    const purchased = await CoursePurchase.findOne({ userId, courseId });
+    const purchased = await CoursePurchase.findOne({
+      userId,
+      courseId,
+      status: "completed",
+    });
 
     if (!course) {
       return res.status(404).json({
