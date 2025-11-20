@@ -19,6 +19,13 @@ export const getCourseProgress = async (req, res) => {
       });
     }
 
+    // Lecture contain video
+    const showLecture = courseDetails.lectures.filter(
+      (lecture) => lecture.videoUrl
+    );
+
+    courseDetails.lectures = showLecture;
+
     // Step-2 If no progress found, return course details with an empty progress
     if (!courseProgress) {
       return res.status(200).json({

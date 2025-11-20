@@ -33,6 +33,42 @@ export const createCourse = async (req, res) => {
   }
 };
 
+export const searchCourse = async (req, res) => {
+  try {
+    const { query = "", categories = [], sortByPrice = "" } = req.query;
+
+    // Create search query
+    const searchCriteria = {
+      isPublished: true,
+      $or: [
+        { courseTitle: { $regex: query, $options: "i" } },
+        { subTitle: { $regex: query, $options: "i" } },
+        { category: { $regex: query, $options: "i" } },
+      ],
+    };
+
+    // If categories selected
+    if (categories.length > 0) {
+      searchCriteria.category = { $in: categories };
+    }
+
+    // Define sorting order
+    const sortOptions = {};
+    if (sortOptions === "low") {
+      sortOptions.coursePrice = 1; // sort by price in ascending
+    } else if (sortOptions === "high") {
+      sortOptions.coursePrice = -1; // descending
+    }
+
+    let courses = await Course.find(searchCriteria);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Failed to search course",
+    });
+  }
+};
+
 export const getPublishedCourse = async (_, res) => {
   try {
     const courses = await Course.find({ isPublished: true })
@@ -66,7 +102,7 @@ export const getCreatorCourses = async (req, res) => {
     if (!courses) {
       return res.status(404).json({
         courses: [],
-        messgae: "Course not found",
+        message: "Course not found",
       });
     }
     return res.status(200).json({
@@ -258,10 +294,19 @@ export const editLecture = async (req, res) => {
 export const removeLecture = async (req, res) => {
   try {
     const { lectureId } = req.params;
+
+    const course = await Course.findOne({ lectures: lectureId });
+    if (!course) {
+      return res.status(404).json({
+        message: "Course not found for this lecture",
+      });
+    }
+
+    //Delete lecture
     const lecture = await Lecture.findByIdAndDelete(lectureId);
     if (!lecture) {
       return res.status(404).json({
-        messgae: "Lecture not found",
+        message: "Lecture removed successfully",
       });
     }
 
@@ -270,15 +315,14 @@ export const removeLecture = async (req, res) => {
       await deleteVideoFromCloudinary(lecture.publicId);
     }
 
-    // Remove the lecture reference from the associated course
-    await Course.updateOne(
-      { lectures: lectureId }, // find the course that contains lecture
-      { $pull: { lectures: lectureId } } // Remove the lectures id from lectures aaray
-    );
-
-    const course = await Course.findOne({ lectures: { $size: 0 } });
     if (course) {
-      course.isPublished = false;
+      // Remove lecture from course
+      course.lectures.pull(lectureId);
+
+      // Unpublish course if no lecture
+      if (course.lectures.length === 0) {
+        course.isPublished = false;
+      }
       await course.save();
     }
 
@@ -355,6 +399,12 @@ export const togglePublishCourse = async (req, res) => {
       });
     }
 
+    if (!course.courseThumbnail) {
+      return res.status(400).json({
+        message: "Course thumbnail is required",
+      });
+    }
+
     // publish status based on query parameter
     course.isPublished = publish === "true";
     await course.save();
@@ -371,7 +421,7 @@ export const togglePublishCourse = async (req, res) => {
   }
 };
 
-// Delete Course
+// Delete course
 export const removeCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
