@@ -54,13 +54,23 @@ export const searchCourse = async (req, res) => {
 
     // Define sorting order
     const sortOptions = {};
-    if (sortOptions === "low") {
+    if (sortByPrice === "low") {
       sortOptions.coursePrice = 1; // sort by price in ascending
-    } else if (sortOptions === "high") {
+    } else if (sortByPrice === "high") {
       sortOptions.coursePrice = -1; // descending
     }
 
-    let courses = await Course.find(searchCriteria);
+    let courses = await Course.find(searchCriteria)
+      .populate({
+        path: "creator",
+        select: "name photoUrl",
+      })
+      .sort(sortOptions);
+
+    return res.status(200).json({
+      success: true,
+      courses: courses || [],
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
