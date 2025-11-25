@@ -52,6 +52,11 @@ export const searchCourse = async (req, res) => {
       searchCriteria.category = { $in: categories };
     }
 
+    // Pagination
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 6;
+    const skip = (page - 1) * limit;
+
     // Define sorting order
     const sortOptions = {};
     if (sortByPrice === "low") {
@@ -65,11 +70,20 @@ export const searchCourse = async (req, res) => {
         path: "creator",
         select: "name photoUrl",
       })
-      .sort(sortOptions);
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limit);
+
+    // Total course count
+    const totalCourses = await Course.countDocuments(searchCriteria);
 
     return res.status(200).json({
       success: true,
       courses: courses || [],
+      totalCourses,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCourses / limit),
     });
   } catch (error) {
     console.log(error);
@@ -141,14 +155,32 @@ export const editCourse = async (req, res) => {
 
     let course = await Course.findById(courseId);
     if (!course) {
-      res.status(404).json({
+      return res.status(404).json({
         message: "Course not found!",
+      });
+    }
+
+    if (!courseTitle || !subTitle) {
+      return res.status(400).json({
+        message: "Add course title and subtitle!",
+      });
+    }
+
+    if (!description?.replace(/<[^>]*>/g, "").trim()) {
+      return res.status(400).json({
+        message: "Course description is required",
       });
     }
 
     if (!courseLevel || !coursePrice) {
       return res.status(400).json({
         message: "Add course level and price first!",
+      });
+    }
+
+    if (!course.courseThumbnail && !thumbnail) {
+      return res.status(400).json({
+        message: "Course thumbnail is required",
       });
     }
 
