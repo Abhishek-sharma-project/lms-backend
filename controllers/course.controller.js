@@ -93,6 +93,30 @@ export const searchCourse = async (req, res) => {
   }
 };
 
+export const getCourseSuggestion = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query || query.trim() === "") {
+      return res.json([]);
+    }
+
+    const suggestion = await Course.find(
+      { courseTitle: { $regex: query, $options: "i" } },
+      { courseTitle: 1 }
+    ).limit(8);
+
+    return res.status(200).json({
+      success: true,
+      suggestion,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Failed to get course suggestion",
+    });
+  }
+};
+
 export const getPublishedCourse = async (_, res) => {
   try {
     const courses = await Course.find({ isPublished: true })

@@ -13,6 +13,7 @@ import {
   removeCourse,
   getPublishedCourse,
   searchCourse,
+  getCourseSuggestion,
 } from "../controllers/course.controller.js";
 import upload from "../utils/multer.js";
 import isAuthenticated from "../middlewares/isAuthenticated.js";
@@ -36,5 +37,6 @@ router.route("/lecture/:lectureId").delete(isAuthenticated, removeLecture);
 router.route("/lecture/:lectureId").get(isAuthenticated, getLectureById);
 router.route("/:courseId").patch(isAuthenticated, togglePublishCourse);
 router.route("/course/:courseId").delete(isAuthenticated, removeCourse);
+router.route("/course/suggestion").get(isAuthenticated, getCourseSuggestion);
 
 export default router;
