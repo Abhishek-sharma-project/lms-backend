@@ -1,10 +1,12 @@
 import { Course } from "../models/course.model.js";
 import { CourseProgress } from "../models/courseProgress.js";
+import PDFDocument from "pdfkit";
+import { User } from "../models/user.model.js";
 
 export const getCourseProgress = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { userId } = req.id;
+    const userId = req.id;
 
     // Step-1 find the user course progress
     let courseProgress = await CourseProgress.findOne({
@@ -57,7 +59,7 @@ export const getCourseProgress = async (req, res) => {
 export const updateLectureProgress = async (req, res) => {
   try {
     const { courseId, lectureId } = req.params;
-    const { userId } = req.id;
+    const userId = req.id;
 
     // create course progress
     let courseProgress = await CourseProgress.findOne({
@@ -117,7 +119,7 @@ export const updateLectureProgress = async (req, res) => {
 export const markAsCompleted = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { userId } = req.id;
+    const userId = req.id;
 
     const courseProgress = await CourseProgress.findOne({
       courseId,
@@ -149,7 +151,7 @@ export const markAsCompleted = async (req, res) => {
 export const markAsInCompleted = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { userId } = req.id;
+    const userId = req.id;
 
     const courseProgress = await CourseProgress.findOne({
       courseId,
@@ -174,6 +176,140 @@ export const markAsInCompleted = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       message: "Failed to mark Incompleted",
+    });
+  }
+};
+
+export const getCertificate = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.id;
+
+    // User & course
+    const user = await User.findById(userId).select("name email");
+    const course = await Course.findById(courseId)
+      .populate("creator", "name")
+      .select("courseTitle creator");
+
+    if (!user || !course) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    // Check course completion
+    const progress = await CourseProgress.findOne({ userId, courseId });
+    if (!progress || !progress.completed) {
+      return res.status(400).json({ message: "Course not completed yet" });
+    }
+
+    // PDF setup
+    const doc = new PDFDocument({ size: "A4", margin: 40 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${user.name}-certificate.pdf`
+    );
+
+    doc.pipe(res);
+
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+
+    // Background + border
+    doc.rect(0, 0, pageWidth, pageHeight).fill("#FAFAFA");
+    doc
+      .lineWidth(4)
+      .strokeColor("#2563EB")
+      .rect(25, 25, pageWidth - 50, pageHeight - 50)
+      .stroke();
+
+    // Background text
+    doc.save();
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(70)
+      .fillColor("#2563EB", 0.08)
+      .rotate(-20, { origin: [pageWidth / 2, pageHeight / 2] })
+      .text("CodeStack", pageWidth / 2 - 200, pageHeight / 2 - 40, {
+        width: 400,
+        align: "center",
+      });
+    doc.restore();
+
+    // Main content start
+    doc.y = 120;
+
+    // Title
+    doc
+      .fillColor("#2563EB")
+      .font("Helvetica-Bold")
+      .fontSize(38)
+      .text("CERTIFICATE OF COMPLETION", { align: "center" });
+
+    doc.y += 70;
+
+    // Student name
+    doc
+      .fillColor("#000")
+      .font("Helvetica-Bold")
+      .fontSize(34)
+      .text(user.name, { align: "center" });
+
+    doc.y += 25;
+
+    // Subtext
+    doc
+      .font("Helvetica")
+      .fontSize(18)
+      .fillColor("#444")
+      .text("has successfully completed the course:", {
+        align: "center",
+      });
+
+    doc.y += 40;
+
+    // Course title
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(30)
+      .fillColor("#2563EB")
+      .text(`"${course.courseTitle}"`, { align: "center" });
+
+    doc.y += 90;
+
+    //Details
+    doc
+      .fillColor("#000")
+      .font("Helvetica")
+      .fontSize(16)
+      .text(`Instructor: ${course.creator.name}`, { align: "center" });
+
+    doc.y += 12;
+    doc.text("Issued By: CodeStack LMS", { align: "center" });
+
+    doc.y += 12;
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, { align: "center" });
+
+    // Signature bottom
+    doc.y = pageHeight - 150;
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(22)
+      .fillColor("#2563EB")
+      .text("CodeStack", { align: "center" });
+
+    doc
+      .font("Helvetica")
+      .fontSize(14)
+      .fillColor("#000")
+      .text("Authorized Signature", { align: "center" });
+
+    doc.end();
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Certificate generation failed",
     });
   }
 };

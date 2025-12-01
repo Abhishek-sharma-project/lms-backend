@@ -1,12 +1,19 @@
 import { User } from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/generateToken.js";
-import { deleteMediaFromCloudinary, uploadMedia } from "../utils/cloudinary.js";
+import {
+  deleteMediaFromCloudinary,
+  deleteVideoFromCloudinary,
+  uploadMedia,
+} from "../utils/cloudinary.js";
+import { Course } from "../models/course.model.js";
+import { Lecture } from "../models/lecture.model.js";
+import { CoursePurchase } from "../models/coursePurchase.model.js";
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) {
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password || !role) {
       return res.status(400).json({
         success: false,
         message: "All fiels are required",
@@ -25,6 +32,7 @@ export const register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      role,
     });
     return res.status(200).json({
       success: true,
@@ -95,7 +103,15 @@ export const logout = async (req, res) => {
 export const getUserProfile = async (req, res) => {
   try {
     const userId = req.id;
-    const user = await User.findById(userId).select("-password");
+    const user = await User.findById(userId)
+      .select("-password")
+      .populate({
+        path: "enrolledCourse",
+        populate: {
+          path: "creator",
+          select: "name photoUrl",
+        },
+      });
     if (!user) {
       return res.status(404).json({
         message: "Profile not found",
@@ -160,6 +176,84 @@ export const updateProfile = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to update profile",
+    });
+  }
+};
+
+export const deleteProfile = async (req, res) => {
+  try {
+    const userId = req.id;
+
+    //Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    //Delete profile photo from Cloudinary
+    if (user.photoUrl) {
+      const publicId = user.photoUrl.split("/").pop().split(".")[0];
+      await deleteMediaFromCloudinary(publicId);
+    }
+
+    //Delete all created courses + lectures + video
+    if (user.role === "instructor") {
+      const courses = await Course.find({ creator: userId });
+
+      for (const course of courses) {
+        const lectures = await Lecture.find({ _id: { $in: course.lectures } });
+
+        // Delete lecture videos
+        for (const lecture of lectures) {
+          if (lecture.publicId) {
+            await deleteVideoFromCloudinary(lecture.publicId);
+          }
+        }
+
+        // Delete lectures
+        await Lecture.deleteMany({ _id: { $in: course.lectures } });
+
+        // Delete course thumbnail
+        if (course.courseThumbnail) {
+          const publicId = course.courseThumbnail
+            .split("/")
+            .pop()
+            .split(".")[0];
+          await deleteMediaFromCloudinary(publicId);
+        }
+
+        // Delete purchase of this course
+        await CoursePurchase.deleteMany({ courseId: course._id });
+
+        // Delete course itself
+        await Course.findByIdAndDelete(course._id);
+      }
+    }
+
+    //Delete user course purchase
+    await CoursePurchase.deleteMany({ userId });
+
+    //Remove user from enrolledStudent array
+    await Course.updateMany(
+      { enrolledStudents: userId },
+      { $pull: { enrolledStudents: userId } }
+    );
+
+    //Delete user
+    await User.findByIdAndDelete(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile deleted successfully",
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete profile",
     });
   }
 };

@@ -17,12 +17,13 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: ["instructor", "student"],
+      required: true,
       default: "student",
     },
     enrolledCourse: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Courses",
+        ref: "Course",
       },
     ],
     photoUrl: {

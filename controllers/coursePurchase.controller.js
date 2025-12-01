@@ -16,6 +16,13 @@ export const createCheckoutSession = async (req, res) => {
       });
     }
 
+    if (course?.creator?.toString() === userId?.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot purchase your own course",
+      });
+    }
+
     // Payment Id
     const transactionId = "TXN_" + new mongoose.Types.ObjectId().toString();
 
@@ -190,11 +197,41 @@ export const getCourseDetailsWithPurchaseStatus = async (req, res) => {
   }
 };
 
-export const getAllPurchasedCourse = async (_, res) => {
+export const getAllPurchasedCourse = async (req, res) => {
   try {
-    const purchasedCourse = await CoursePurchase.find({
+    const instructorId = req.id;
+
+    let purchasedCourse = await CoursePurchase.find({
       status: "completed",
-    }).populate("userId");
+    })
+      .populate({
+        path: "userId",
+        select: "-password -__v",
+      })
+      .populate({
+        path: "courseId",
+        select: "courseTitle coursePrice creator",
+      });
+
+    // Deleted Course
+    const invalidCourse = purchasedCourse.filter(
+      (item) => item.courseId === null
+    );
+
+    if (invalidCourse.length > 0) {
+      const deleteCourse = invalidCourse.map((course) => course._id);
+      await CoursePurchase.deleteMany({ _id: { $in: deleteCourse } });
+    }
+
+    // Valid purchase
+    purchasedCourse = purchasedCourse.filter(
+      (course) => course.courseId !== null
+    );
+
+    //Instructor course
+    purchasedCourse = purchasedCourse.filter((item) => {
+      return item.courseId?.creator?.toString() === instructorId.toString();
+    });
 
     if (!purchasedCourse) {
       return res.status(404).json({
