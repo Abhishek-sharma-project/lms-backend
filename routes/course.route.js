@@ -21,7 +21,7 @@ import isAuthenticated from "../middlewares/isAuthenticated.js";
 const router = express.Router();
 
 router.route("/").post(isAuthenticated, createCourse);
-router.route("/search").get(isAuthenticated, searchCourse);
+router.route("/search").get(searchCourse);
 router.route("/published-courses").get(getPublishedCourse);
 router.route("/").get(isAuthenticated, getCreatorCourses);
 router
@@ -37,6 +37,6 @@ router.route("/lecture/:lectureId").delete(isAuthenticated, removeLecture);
 router.route("/lecture/:lectureId").get(isAuthenticated, getLectureById);
 router.route("/:courseId").patch(isAuthenticated, togglePublishCourse);
 router.route("/course/:courseId").delete(isAuthenticated, removeCourse);
-router.route("/course/suggestion").get(isAuthenticated, getCourseSuggestion);
+router.route("/course/suggestion").get(getCourseSuggestion);
 
 export default router;

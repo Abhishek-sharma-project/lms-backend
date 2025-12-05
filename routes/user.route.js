@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  becomeInstructor,
   deleteProfile,
   getUserProfile,
   login,
@@ -20,5 +21,6 @@ router
   .route("/profile/update")
   .put(isAuthenticated, upload.single("profilePhoto"), updateProfile);
 router.route("/profile/delete").delete(isAuthenticated, deleteProfile);
+router.route("/become-instructor").patch(isAuthenticated, becomeInstructor);
 
 export default router;
