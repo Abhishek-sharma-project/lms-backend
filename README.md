@@ -46,8 +46,7 @@ npm install
 
 Create a `.env` file:  
 MONGO_URI=your-mongo-uri  
-JWT_SECRET=your-secret  
-PAYMENT_KEY=your-payment-key
+JWT_SECRET=your-secret
 
 ## Start
 
