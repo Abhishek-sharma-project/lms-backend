@@ -34,6 +34,11 @@ app.use("/api/v1/course", courseRoute);
 app.use("/api/v1/purchase", purchaseRoute);
 app.use("/api/v1/progress", courseProgressRoute);
 
+// health check route
+app.get("/api/health", (_, res) => {
+  res.status(200).send("Server is running");
+});
+
 app.listen(PORT, () => {
   console.log(`server listen on port ${PORT}`);
 });
